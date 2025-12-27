@@ -4,12 +4,19 @@
 #include <GLFW/glfw3.h>
 #include "draw_shapes.h"
 #include "init_shapes.h"
+#include "collision.h"
+#include "vectors.h"
 
 #define pi 3.1415926535897932384626433f
-#define MAX_SHAPES 100
-#define restitution 0.8f
-#define friction 0.9f
 #define gravity 0.00005f
+
+double lastTime = 0.0;
+int frameCount = 0;
+double currentFPS = 0.0;
+double deltaTime = 0.0;
+double lastFrameTime = 0.0;
+
+int body_count = 0;
 
 GLuint VAO, VBO;
 int colorLocation;
@@ -17,31 +24,21 @@ int colorLocation;
 GLFWwindow *window;
 
 int screenHeight = 800;
-int screenWidth = 1600;
-
-int circle_count = 0;
-int line_count = 0;
-
-Circle circles[MAX_SHAPES];
-Line lines[MAX_SHAPES];
-
-typedef struct
-{
-    float x;
-    float y;
-} Vec2;
+int screenWidth = 1000;
 
 Vec2 velocity = {0.0f, 0.0f};
 Vec2 acceleration = {0.0f, 0.0f};
 
-void addLine(float x1, float y1, float x2, float y2);
+// void addLine(float x1, float y1, float x2, float y2);
 
 const char *vertexShaderSource =
     "#version 330 core\n"
     "uniform float uAspect;\n"
+    "uniform float uZoom;\n"
     "layout (location = 0) in vec2 aPos;\n"
     "void main() {\n"
-    "    gl_Position = vec4(aPos.x, aPos.y / uAspect, 0.0, 1.0);\n" // Fixed!
+    "    // Scale X by aspect to match window ratio\n"
+    "    gl_Position = vec4(aPos.x * uZoom, aPos.y / uAspect * uZoom, 0.0, 1.0);\n"
     "}\0";
 
 const char *fragmentShaderSource =
@@ -52,42 +49,74 @@ const char *fragmentShaderSource =
     "    FragColor = uColor;\n"
     "}\0";
 
-Vec2 findMidpoints(Line line)
+void calculateFPS(void)
 {
-    // midpoint of line
-    float mx = (line.x1 + line.x2) / 2.0f;
-    float my = (line.y1 + line.y2) / 2.0f;
+    double currentTime = glfwGetTime();
+    deltaTime = currentTime - lastFrameTime;
+    lastFrameTime = currentTime;
 
-    Vec2 midpoint = (Vec2){mx, my};
+    frameCount++;
+    if (currentTime - lastTime >= 1.0)
+    {
+        currentFPS = frameCount / (currentTime - lastTime);
 
-    return midpoint;
+        // Display in window title
+        char title[256];
+        sprintf(title, "Physics Simulator - FPS: %.1f", currentFPS);
+        glfwSetWindowTitle(window, title);
+
+        frameCount = 0;
+        lastTime = currentTime;
+    }
 }
 
-Vec2 findNormal(Line line)
+float zoom = 1.0f; // 1.0 = normal scale
+
+void scrollCallback(GLFWwindow *window, double offsetX, double offsetY)
 {
-    Vec2 direction = {line.x2 - line.x1, line.y2 - line.y1};
+    if (offsetY > 0)
+        zoom *= 1.1f; // zoom in
+    else
+        zoom /= 1.1f; // zoom out
 
-    float mag = sqrtf(pow(direction.x, 2) + pow(direction.y, 2));
+    if (zoom < 0.1f)
+        zoom = 0.1f;
+    if (zoom > 10.0f)
+        zoom = 10.0f;
+}
 
-    if (mag < 0.0001f)
-        return (Vec2){0, 0};
+Vec2 mousePos = {0.0f, 0.0f};
 
-    direction.x = direction.x / mag;
-    direction.y = direction.y / mag;
+void cursorPositionCallback(GLFWwindow *window, double posX, double posY)
+{
+    int width, height;
+    glfwGetFramebufferSize(window, &width, &height);
 
-    Vec2 midpoint = findMidpoints(line);
+    float aspect = (float)height / (float)width;
 
-    Vec2 normal = {-direction.y * 0.1f, direction.x * 0.1f};
+    // Map to [-1,1] in x, then scale y according to aspect
+    mousePos.x = (float)posX / width * 4 - 1.0f;
+    mousePos.y = -((float)posY / height * 4 - 1.0f);
+    mousePos.x /= zoom;
+    mousePos.y /= zoom;
+    mousePos.y *= aspect;
+}
 
-    float dotP = (normal.x * (-midpoint.x) + normal.y * (-midpoint.y));
+bool leftButtonDown = false;
 
-    if (dotP < 0)
+void mouseButtonCallback(GLFWwindow *window, int button, int action, int mods)
+{
+    if (button == GLFW_MOUSE_BUTTON_LEFT)
     {
-        normal.x = -normal.x;
-        normal.y = -normal.y;
+        if (action == GLFW_PRESS)
+        {
+            leftButtonDown = true;
+        }
+        else
+        {
+            leftButtonDown = false;
+        }
     }
-
-    return normal;
 }
 
 void keyCallBack(GLFWwindow *window, int key, int scancode, int action, int mods)
@@ -117,23 +146,6 @@ void keyCallBack(GLFWwindow *window, int key, int scancode, int action, int mods
     }
 }
 
-void game(void);
-
-void addCircle(float x, float y, float r)
-{
-    circles[circle_count] = init_circle(circle_count, x, y, r);
-    circle_count++;
-}
-
-void addLine(float x1, float y1, float x2, float y2)
-{
-    if (line_count >= MAX_SHAPES)
-        return;
-
-    lines[line_count] = init_line(line_count, x1, y1, x2, y2);
-    line_count++;
-}
-
 int main(void)
 {
     glfwInit();
@@ -144,7 +156,11 @@ int main(void)
     window = glfwCreateWindow(screenWidth, screenHeight, "Physics Simulator", NULL, NULL);
 
     glfwMakeContextCurrent(window);
+
     glfwSetKeyCallback(window, keyCallBack);
+    glfwSetMouseButtonCallback(window, mouseButtonCallback);
+    glfwSetCursorPosCallback(window, cursorPositionCallback);
+    glfwSetScrollCallback(window, scrollCallback);
 
     gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
 
@@ -169,23 +185,24 @@ int main(void)
 
     initDraw(VAO, VBO, colorLocation);
 
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
 
-    addCircle(0.0f, 0.2f, 0.05f);
+    init_line((Vec2){-0.0f, 0.4f}, (Vec2){0.8f, 0.4f}, COLOR_BLUE, 0.0f, false);
+    init_line((Vec2){-0.8f, -0.4f}, (Vec2){0.0f, -0.4f}, COLOR_BLUE, 0.0f, false);
+    init_line((Vec2){-0.8f, -0.4f}, (Vec2){0.0f, 0.4f}, COLOR_BLUE, 0.0f, false);
+    init_line((Vec2){0.0f, -0.4f}, (Vec2){0.8f, 0.4f}, COLOR_BLUE, 0.0f, false);
 
-    // addLine(-0.0f, 0.4f, 0.8f, 0.4f);   // top
-    // addLine(-0.8f, -0.4f, 0.0f, -0.4f); // bottom
-    // addLine(-0.8f, -0.4f, 0.0f, 0.4f);  // left
-    // addLine(0.0f, -0.4f, 0.8f, 0.4f);   // right
-
-    // addLine(-0.5f, 0.5f, 0.5f, 0.5f);   // top
-    // addLine(0.5f, -0.5f, 0.5f, 0.5f);   // right
-    // addLine(-0.5f, -0.5f, 0.5f, -0.5f); // bottom
-    // addLine(-0.5f, -0.5f, -0.5f, 0.5f); // left
+    init_circle((Vec2){0.0f, 0.0f}, 0.05f, false, COLOR_BLUE, 0.0f, true);
+    init_circle((Vec2){-0.15f, 0.0f}, 0.05f, true, COLOR_BLUE, 0.0f, true);
 
     while (!glfwWindowShouldClose(window))
     {
+        calculateFPS();
+
         glClearColor(0.0f, 0.0f, 0.0f, 1);
         glClear(GL_COLOR_BUFFER_BIT);
 
@@ -198,98 +215,52 @@ int main(void)
         int aspectLoc = glGetUniformLocation(shaderProgram, "uAspect");
         glUniform1f(aspectLoc, aspect);
 
-        setColor(1.0f, 1.0f, 0.0f, 1.0f);
+        int zoomLoc = glGetUniformLocation(shaderProgram, "uZoom");
+        glUniform1f(zoomLoc, zoom);
 
         velocity.x += acceleration.x;
         velocity.y += acceleration.y;
 
-        circles[0].y += velocity.y;
-        circles[0].x += velocity.x;
-
-        for (int i = 0; i < line_count; i++)
+        for (int i = 0; i < body_count; i++)
         {
-            // Line direction vector
-            Vec2 direction = {lines[i].x2 - lines[i].x1, lines[i].y2 - lines[i].y1};
-
-            // Direction vector of circle to line
-            Vec2 toCircle = {circles[0].x - lines[i].x1, circles[0].y - lines[i].y1};
-
-            // The code below finds the length of the line and distance from the circle to the starting of the line
-            // The formula to find distance between two points is sqrt(x1 * x2 + y1 * y2)
-            // But sqrt is cpu heavy and wastes a lot of cpu computation
-            // So instead we use the square of it (no sqrt)
-
-            // Length squared of line segment
-            // Same here as well using squared to reduce computation
-            float lineLengthSq = direction.x * direction.x + direction.y * direction.y;
-
-            // Length from circle to the line
-            float circlineLengthSq = toCircle.x * direction.x + toCircle.y * direction.y;
-
-            // Project circle center onto line (0 to 1 range)
-            // 0 being the starting of the line
-            // 1 being the ending of the line
-            float t = circlineLengthSq / lineLengthSq;
-
-            // Clamp t to line segment
-            if (t < 0.0f)
+            if (bodies[i].isDynamic)
             {
-                t = 0.0f;
-            }
-            if (t > 1.0f)
-            {
-                t = 1.0f;
+                // Update velocity with acceleration and gravity
+                bodies[i].velocity.x += bodies[i].acceleration.x * deltaTime;
+                bodies[i].velocity.y += (bodies[i].acceleration.y - gravity) * deltaTime;
+
+                if (bodies[i].type == SHAPE_CIRCLE)
+                {
+                    // Update position based on velocity
+                    bodies[i].data.circle.x += bodies[i].velocity.x * deltaTime;
+                    bodies[i].data.circle.y += bodies[i].velocity.y * deltaTime;
+                }
+                if (bodies[i].type == SHAPE_LINE)
+                {
+                    bodies[i].data.line.vertices[0].x += bodies[i].velocity.x * deltaTime;
+                    bodies[i].data.line.vertices[1].x += bodies[i].velocity.x * deltaTime;
+                    bodies[i].data.line.vertices[0].y += bodies[i].velocity.y * deltaTime;
+                    bodies[i].data.line.vertices[1].y += bodies[i].velocity.y * deltaTime;
+                }
             }
 
-            // Find closest point on line segment
-            Vec2 closest = {lines[i].x1 + t * direction.x, lines[i].y1 + t * direction.y};
-
-            // Distance from circle center to closest point
-            float dx = circles[0].x - closest.x;
-            float dy = circles[0].y - closest.y;
-            float distance = sqrtf(dx * dx + dy * dy);
-
-            velocity.y -= gravity;
-
-            // Check collision
-            if (distance <= circles[0].r)
+            if (bodies[i].type == SHAPE_CIRCLE)
             {
-                // Collision normal (from line to circle)
-                Vec2 collisionNormal = {dx / distance, dy / distance};
-
-                // Push circle out of the line
-                float penetration = circles[0].r - distance;
-                circles[0].x += collisionNormal.x * penetration;
-                circles[0].y += collisionNormal.y * penetration;
-
-
-                // Reflect velocity
-                float dot = velocity.x * collisionNormal.x + velocity.y * collisionNormal.y;
-
-                Vec2 normalVel = {dot * collisionNormal.x, dot * collisionNormal.y};
-
-                normalVel.x *= -restitution;
-                normalVel.y *= -restitution;
-
-                Vec2 tangentVel = {velocity.x - normalVel.x, velocity.y - normalVel.y};
-
-                tangentVel.x *= (1.0f - friction);
-                tangentVel.y *= (1.0f - friction);
-
-                velocity.x = tangentVel.x + normalVel.x;
-                velocity.y = tangentVel.y + normalVel.y;
+                drawCircle(bodies[i]);
             }
-
-            // Draw normals
-            Vec2 normal = findNormal(lines[i]);
-            Vec2 midpoint = findMidpoints(lines[i]);
-
-            setColor((float)i * 0.8f, 0.0f, 1.0f, 1.0f);
-
-            Line line = {-1, midpoint.x, midpoint.y, midpoint.x + normal.x, midpoint.y + normal.y};
-            drawLine(line);
+            else if (bodies[i].type == SHAPE_LINE)
+            {
+                drawLine(bodies[i]);
+            }
         }
-        game();
+
+        static bool prevLeftDown = false;
+
+        if (leftButtonDown && !prevLeftDown)
+        {
+            init_circle(mousePos, 0.05f, false, COLOR_RED, 0.0f, true);
+        }
+        prevLeftDown = leftButtonDown;
 
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -297,15 +268,4 @@ int main(void)
 
     glfwTerminate();
     return 0;
-}
-
-void game(void)
-{
-    setColor(1.0f, 1.0f, 0.0f, 1.0f);
-    drawCircle(circles[0]);
-    setColor(1.0f, 1.0f, 1.0f, 1.0f);
-    for (int i = 0; i < line_count; i++)
-    {
-        drawLine(lines[i]);
-    }
 }

@@ -16,9 +16,9 @@ void initDraw(GLuint vao, GLuint vbo, GLint colorLoc)
     colorLocation_global = colorLoc;
 }
 
-void setColor(float r, float g, float b, float a)
+void setColor(Color color)
 {
-    glUniform4f(colorLocation_global, r, g, b, a);
+    glUniform4f(colorLocation_global, color.r, color.g, color.b, color.a);
 }
 
 void drawQuad(float x1, float y1, float x2, float y2,
@@ -36,76 +36,68 @@ void drawQuad(float x1, float y1, float x2, float y2,
     glDrawArrays(GL_TRIANGLES, 0, 6);
 }
 
-// void drawCircle(float x, float y, float r)
-// {
-//     int steps = ceilf(r * 256);
-//     float verts[(steps + 2) * 2];
-
-//     verts[0] = x;
-//     verts[1] = y;
-
-//     float angStep = 2 * PI / steps;
-
-//     for (int i = 0; i <= steps; i++) {
-//         float t = i * angStep;
-//         verts[2 + 2*i] = x + cosf(t) * r;
-//         verts[2 + 2*i + 1] = y + sinf(t) * r;
-//     }
-
-//     glBindVertexArray(VAO_global);
-//     glBindBuffer(GL_ARRAY_BUFFER, VBO_global);
-//     glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
-//     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2*sizeof(float), 0);
-//     glEnableVertexAttribArray(0);
-//     glDrawArrays(GL_TRIANGLE_FAN, 0, steps + 2);
-// }
-
-void drawCircle(Circle circle)
+void drawCircle(Body body)
 {
-    int steps = ceilf(circle.r * 200.0f);
+    if (body.type != SHAPE_CIRCLE)
+        return;
 
-    if (steps < 16) steps = 16;
-    if (steps > 64) steps = 64; 
+    int steps = ceilf(body.data.circle.r * 200.0f);
+    if (steps < 24)
+        steps = 24;
+    if (steps > 64)
+        steps = 64;
 
-    float verts[(steps + 2) * 2];
+    float angStep = 2.0f * PI / steps;
 
+    setColor(body.color);
 
-    verts[0] = circle.x;
-    verts[1] = circle.y;
-
-    float angStep = 2 * PI / steps;
-
-    for (int i = 0; i <= steps; i++)
+    // ---- FILLED CIRCLE ----
+    if (body.filled)
     {
-        float t = i * angStep;
-        verts[2 + 2 * i] = circle.x + cosf(t) * circle.r;
-        verts[2 + 2 * i + 1] = circle.y + sinf(t) * circle.r;
-    }
+        float verts[(steps + 2) * 2];
 
-    glBindVertexArray(VAO_global);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO_global);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), 0);
-    glEnableVertexAttribArray(0);
-    glDrawArrays(GL_TRIANGLE_FAN, 0, steps + 2);
+        verts[0] = body.data.circle.x;
+        verts[1] = body.data.circle.y;
+
+        for (int i = 0; i <= steps; i++)
+        {
+            float t = i * angStep;
+            verts[2 + 2 * i] = body.data.circle.x + cosf(t) * body.data.circle.r;
+            verts[2 + 2 * i + 1] = body.data.circle.y + sinf(t) * body.data.circle.r;
+        }
+
+        glBindVertexArray(VAO_global);
+        glBindBuffer(GL_ARRAY_BUFFER, VBO_global);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
+        glEnableVertexAttribArray(0);
+        glDrawArrays(GL_TRIANGLE_FAN, 0, steps + 2);
+    }
+    // ---- OUTLINE CIRCLE ----
+    else
+    {
+        float verts[(steps + 1) * 2];
+
+        for (int i = 0; i <= steps; i++)
+        {
+            float t = i * angStep;
+            verts[2 * i] = body.data.circle.x + cosf(t) * body.data.circle.r;
+            verts[2 * i + 1] = body.data.circle.y + sinf(t) * body.data.circle.r;
+        }
+
+        glBindVertexArray(VAO_global);
+        glBindBuffer(GL_ARRAY_BUFFER, VBO_global);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
+        glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
+        glEnableVertexAttribArray(0);
+        glDrawArrays(GL_LINE_LOOP, 0, steps);
+    }
 }
 
-// void drawLine(float x1, float y1, float x2, float y2)
-// {
-//     float v[] = { x1, y1, x2, y2 };
-
-//     glBindVertexArray(VAO_global);
-//     glBindBuffer(GL_ARRAY_BUFFER, VBO_global);
-//     glBufferData(GL_ARRAY_BUFFER, sizeof(v), v, GL_STATIC_DRAW);
-//     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2*sizeof(float), 0);
-//     glEnableVertexAttribArray(0);
-//     glDrawArrays(GL_LINES, 0, 2);
-// }
-
-void drawLine(Line line)
+void drawLine(Body body)
 {
-    float v[] = {line.x1, line.y1, line.x2, line.y2};
-
+    float v[] = {body.data.line.vertices[0].x, body.data.line.vertices[0].y, body.data.line.vertices[1].x, body.data.line.vertices[1].y};
+    setColor(body.color);
     glBindVertexArray(VAO_global);
     glBindBuffer(GL_ARRAY_BUFFER, VBO_global);
     glBufferData(GL_ARRAY_BUFFER, sizeof(v), v, GL_STATIC_DRAW);
