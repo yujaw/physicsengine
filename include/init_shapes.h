@@ -8,6 +8,10 @@
 #define COLOR_GREEN (Color){0.0f, 1.0f, 0.0f, 1.0f}
 #define COLOR_BLUE (Color){0.0f, 0.0f, 1.0f, 1.0f}
 #define COLOR_YELLOW (Color){1.0f, 1.0f, 0.0f, 1.0f}
+#define COLOR_WHITE (Color){1.0f, 1.0f, 1.0f, 1.0f}
+#define COLOR_BLACK (Color){0.0f, 0.0f, 0.0f, 1.0f}
+
+extern int body_count;
 
 typedef struct
 {
@@ -39,8 +43,8 @@ typedef struct
 typedef enum
 {
     SHAPE_LINE,
-    SHAPE_CIRCLE,
-    SHAPE_QUAD
+    SHAPE_POLYGON,
+    SHAPE_ELLIPSE
 } ShapeType;
 
 typedef struct
@@ -64,23 +68,31 @@ typedef struct
     {
         struct
         {
-            float x, y, r;
-        } circle;
-        struct
-        {
             Vec2 vertices[2];
         } line;
         struct
         {
-            Vec2 vertices[4];
-        } quad;
+            Vec2 *vertices;
+            int numVertices;
+        } polygon;
+        struct
+        {
+            Vec2 pos;
+            Vec2 r;
+        } ellipse;
     } data;
 } Body;
 
 Body bodies[MAX_SHAPES];
 
-void init_circle(Vec2 pos, float r, bool filled, Color color, float mass, bool isDyanamic);
+Body *init_line(Vec2 a, Vec2 b, Color color, bool isDynamic);
 
-void init_line(Vec2 a, Vec2 b, Color color, float mass, bool isDynamic);
+Body *init_polygon(Vec2 *vertices, int numVertices, Color color);
+
+Body *init_ellipse(Vec2 pos, Vec2 r, Color color);
+
+Vec2 findCenter(Body *body);
+
+bool removeBody(Body *body);
 
 #endif

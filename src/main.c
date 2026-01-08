@@ -6,30 +6,23 @@
 #include "init_shapes.h"
 #include "collision.h"
 #include "vectors.h"
+#include "fps.h"
 
 #define pi 3.1415926535897932384626433f
-#define gravity 0.00005f
+#define gravity 0.0f
 
-double lastTime = 0.0;
-int frameCount = 0;
-double currentFPS = 0.0;
-double deltaTime = 0.0;
-double lastFrameTime = 0.0;
-
-int body_count = 0;
-
+GLFWwindow *window;
 GLuint VAO, VBO;
 int colorLocation;
 
-GLFWwindow *window;
-
 int screenHeight = 800;
 int screenWidth = 1000;
+float screenZoom = 1.0f;
 
-Vec2 velocity = {0.0f, 0.0f};
-Vec2 acceleration = {0.0f, 0.0f};
+float mousePosX;
+float mousePosY;
 
-// void addLine(float x1, float y1, float x2, float y2);
+Body *polygon3;
 
 const char *vertexShaderSource =
     "#version 330 core\n"
@@ -49,99 +42,106 @@ const char *fragmentShaderSource =
     "    FragColor = uColor;\n"
     "}\0";
 
-void calculateFPS(void)
-{
-    double currentTime = glfwGetTime();
-    deltaTime = currentTime - lastFrameTime;
-    lastFrameTime = currentTime;
-
-    frameCount++;
-    if (currentTime - lastTime >= 1.0)
-    {
-        currentFPS = frameCount / (currentTime - lastTime);
-
-        // Display in window title
-        char title[256];
-        sprintf(title, "Physics Simulator - FPS: %.1f", currentFPS);
-        glfwSetWindowTitle(window, title);
-
-        frameCount = 0;
-        lastTime = currentTime;
-    }
-}
-
-float zoom = 1.0f; // 1.0 = normal scale
-
 void scrollCallback(GLFWwindow *window, double offsetX, double offsetY)
 {
     if (offsetY > 0)
-        zoom *= 1.1f; // zoom in
+        screenZoom *= 1.1f;
     else
-        zoom /= 1.1f; // zoom out
+        screenZoom /= 1.1f;
 
-    if (zoom < 0.1f)
-        zoom = 0.1f;
-    if (zoom > 10.0f)
-        zoom = 10.0f;
+    if (screenZoom < 0.1f)
+        screenZoom = 0.1f;
+    if (screenZoom > 10.0f)
+        screenZoom = 10.0f;
 }
-
-Vec2 mousePos = {0.0f, 0.0f};
 
 void cursorPositionCallback(GLFWwindow *window, double posX, double posY)
 {
-    int width, height;
-    glfwGetFramebufferSize(window, &width, &height);
-
-    float aspect = (float)height / (float)width;
-
-    // Map to [-1,1] in x, then scale y according to aspect
-    mousePos.x = (float)posX / width * 4 - 1.0f;
-    mousePos.y = -((float)posY / height * 4 - 1.0f);
-    mousePos.x /= zoom;
-    mousePos.y /= zoom;
-    mousePos.y *= aspect;
+    // Nothing to See Here!
 }
-
-bool leftButtonDown = false;
 
 void mouseButtonCallback(GLFWwindow *window, int button, int action, int mods)
 {
-    if (button == GLFW_MOUSE_BUTTON_LEFT)
-    {
-        if (action == GLFW_PRESS)
-        {
-            leftButtonDown = true;
-        }
-        else
-        {
-            leftButtonDown = false;
-        }
-    }
 }
 
 void keyCallBack(GLFWwindow *window, int key, int scancode, int action, int mods)
 {
-    acceleration = (Vec2){0.0f, 0.0f};
-    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
-        glfwSetWindowShouldClose(window, 1);
-
-    if (action == GLFW_PRESS || action == GLFW_REPEAT)
+    if (key == GLFW_KEY_Q && (action == GLFW_PRESS || action == GLFW_REPEAT))
     {
-        if (key == GLFW_KEY_W)
+        // Rotation Matrix
+        // [cos -sin
+        // sin cos]
+        // x cos - y sin
+        // x sin + y cos
+        float angle = -0.02f;
+        float sin = sinf(angle);
+        float cos = cosf(angle);
+        Vec2 center = findCenter(polygon3);
+        for (int i = 0; i < polygon3->data.polygon.numVertices; i++)
         {
-            acceleration.y = 0.001f;
+            float x = polygon3->data.polygon.vertices[i].x - center.x;
+            float y = polygon3->data.polygon.vertices[i].y - center.y;
+            polygon3->data.polygon.vertices[i].x = (x * cos - y * sin) + center.x;
+            polygon3->data.polygon.vertices[i].y = (x * sin + y * cos) + center.y;
         }
-        if (key == GLFW_KEY_S)
+    }
+    if (key == GLFW_KEY_E && (action == GLFW_PRESS || action == GLFW_REPEAT))
+    {
+        // Rotation Matrix
+        // [cos -sin
+        // sin cos]
+        // x cos - y sin
+        // x sin + y cos
+        float angle = 0.02f;
+        float sin = sinf(angle);
+        float cos = cosf(angle);
+        Vec2 center = findCenter(polygon3);
+        for (int i = 0; i < polygon3->data.polygon.numVertices; i++)
         {
-            acceleration.y = -0.001f;
+            float x = polygon3->data.polygon.vertices[i].x - center.x;
+            float y = polygon3->data.polygon.vertices[i].y - center.y;
+            polygon3->data.polygon.vertices[i].x = (x * cos - y * sin) + center.x;
+            polygon3->data.polygon.vertices[i].y = (x * sin + y * cos) + center.y;
         }
-        if (key == GLFW_KEY_A)
+    }
+    if (key == GLFW_KEY_W)
+    {
+        if (action == GLFW_PRESS || action == GLFW_REPEAT)
         {
-            acceleration.x = -0.001f;
+            for (int i = 0; i < polygon3->data.polygon.numVertices; i++)
+            {
+                polygon3->data.polygon.vertices[i].y += 0.01f;
+            }
         }
-        if (key == GLFW_KEY_D)
+    }
+    if (key == GLFW_KEY_S)
+    {
+        if (action == GLFW_PRESS || action == GLFW_REPEAT)
         {
-            acceleration.x = 0.001f;
+            for (int i = 0; i < polygon3->data.polygon.numVertices; i++)
+            {
+                polygon3->data.polygon.vertices[i].y -= 0.01f;
+            }
+        }
+    }
+    if (key == GLFW_KEY_A)
+    {
+        if (action == GLFW_PRESS || action == GLFW_REPEAT)
+        {
+            for (int i = 0; i < polygon3->data.polygon.numVertices; i++)
+            {
+                polygon3->data.polygon.vertices[i].x -= 0.01f;
+            }
+        }
+    }
+    if (key == GLFW_KEY_D)
+    {
+        if (action == GLFW_PRESS || action == GLFW_REPEAT)
+        {
+            for (int i = 0; i < polygon3->data.polygon.numVertices; i++)
+            {
+                polygon3->data.polygon.vertices[i].x += 0.01f;
+            }
         }
     }
 }
@@ -155,6 +155,13 @@ int main(void)
 
     window = glfwCreateWindow(screenWidth, screenHeight, "Physics Simulator", NULL, NULL);
 
+    if (window == NULL)
+    {
+        printf("Failed to initialize window\n");
+        glfwTerminate();
+        return -1;
+    }
+
     glfwMakeContextCurrent(window);
 
     glfwSetKeyCallback(window, keyCallBack);
@@ -163,6 +170,11 @@ int main(void)
     glfwSetScrollCallback(window, scrollCallback);
 
     gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+    {
+        printf("Failed to initialize GLAD\n");
+        return -1;
+    }
 
     int vertexShader = glCreateShader(GL_VERTEX_SHADER);
     glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
@@ -191,19 +203,46 @@ int main(void)
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
 
-    init_line((Vec2){-0.0f, 0.4f}, (Vec2){0.8f, 0.4f}, COLOR_BLUE, 0.0f, false);
-    init_line((Vec2){-0.8f, -0.4f}, (Vec2){0.0f, -0.4f}, COLOR_BLUE, 0.0f, false);
-    init_line((Vec2){-0.8f, -0.4f}, (Vec2){0.0f, 0.4f}, COLOR_BLUE, 0.0f, false);
-    init_line((Vec2){0.0f, -0.4f}, (Vec2){0.8f, 0.4f}, COLOR_BLUE, 0.0f, false);
+    Body *polygon = init_polygon((Vec2[]){
+                                     (Vec2){-0.5f, -0.5f},
+                                     (Vec2){-0.5f, -0.25f},
+                                     (Vec2){-0.25f, -0.25f},
+                                     (Vec2){-0.25f, -0.5f},
+                                 },
+                                 4, (Color){1.0f, 0.0f, 0.0f, 0.2f});
+    polygon->filled = true;
 
-    init_circle((Vec2){0.0f, 0.0f}, 0.05f, false, COLOR_BLUE, 0.0f, true);
-    init_circle((Vec2){-0.15f, 0.0f}, 0.05f, true, COLOR_BLUE, 0.0f, true);
+    polygon3 = init_polygon((Vec2[]){
+                                (Vec2){0.0f, 0.25f},
+                                (Vec2){0.4f, 0.3f},
+                                (Vec2){0.4f, 0.0f},
+                                (Vec2){0.25f, -0.25f},
+                                (Vec2){-0.1f, -0.25f},
+                            },
+                            5, (Color){0.0f, 1.0f, 0.0f, 0.2f});
+    polygon3->filled = true;
+
+    Body *minkowskiDiff = init_polygon((Vec2[]){0.0f, 0.0f, 0.0f}, 3, (Color){1.0f, 1.0f, 1.0f, 0.2f});
+    minkowskiDiff->filled = true;
+
+    Vec2 center1 = findCenter(polygon3);
+
+    Body *ellipse = init_ellipse((Vec2){0.5f, 0.0f}, (Vec2){0.1f, 0.5f}, COLOR_RED);
+    ellipse->filled = true;
+
+    Vec2 center = findCenter(polygon);
+
+    Body *circle = init_ellipse((Vec2){center.x, center.y}, (Vec2){0.005f, 0.005f}, COLOR_GREEN);
+    circle->filled = true;
 
     while (!glfwWindowShouldClose(window))
     {
-        calculateFPS();
+        double currentFPS = calculateFPS(glfwGetTime());
+        char title[256];
+        sprintf(title, "Physics Simulator - FPS: %.1f", currentFPS);
+        glfwSetWindowTitle(window, title);
 
-        glClearColor(0.0f, 0.0f, 0.0f, 1);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
         glUseProgram(shaderProgram);
@@ -216,53 +255,23 @@ int main(void)
         glUniform1f(aspectLoc, aspect);
 
         int zoomLoc = glGetUniformLocation(shaderProgram, "uZoom");
-        glUniform1f(zoomLoc, zoom);
+        glUniform1f(zoomLoc, screenZoom);
 
-        velocity.x += acceleration.x;
-        velocity.y += acceleration.y;
+        createMinkowskiDifference(minkowskiDiff, polygon, polygon3, (Color){1.0f, 1.0f, 1.0f, 0.2f});
 
-        for (int i = 0; i < body_count; i++)
-        {
-            if (bodies[i].isDynamic)
-            {
-                // Update velocity with acceleration and gravity
-                bodies[i].velocity.x += bodies[i].acceleration.x * deltaTime;
-                bodies[i].velocity.y += (bodies[i].acceleration.y - gravity) * deltaTime;
-
-                if (bodies[i].type == SHAPE_CIRCLE)
-                {
-                    // Update position based on velocity
-                    bodies[i].data.circle.x += bodies[i].velocity.x * deltaTime;
-                    bodies[i].data.circle.y += bodies[i].velocity.y * deltaTime;
-                }
-                if (bodies[i].type == SHAPE_LINE)
-                {
-                    bodies[i].data.line.vertices[0].x += bodies[i].velocity.x * deltaTime;
-                    bodies[i].data.line.vertices[1].x += bodies[i].velocity.x * deltaTime;
-                    bodies[i].data.line.vertices[0].y += bodies[i].velocity.y * deltaTime;
-                    bodies[i].data.line.vertices[1].y += bodies[i].velocity.y * deltaTime;
-                }
-            }
-
-            if (bodies[i].type == SHAPE_CIRCLE)
-            {
-                drawCircle(bodies[i]);
-            }
-            else if (bodies[i].type == SHAPE_LINE)
-            {
-                drawLine(bodies[i]);
-            }
+        drawPolygon(polygon3);
+        Vec2 sup = support(polygon3, (Vec2){1.0f, 0.0f});
+        if(checkGJK(polygon3, polygon)) {
+            polygon3->color = COLOR_WHITE;
+            polygon->color = COLOR_WHITE;
+        } else {
+            polygon3->color = (Color){0.0f, 1.0f, 0.0f, 0.2f};
+            polygon->color = (Color){1.0f, 0.0f, 0.0f, 0.2f};
         }
-
-        static bool prevLeftDown = false;
-
-        if (leftButtonDown && !prevLeftDown)
-        {
-            init_circle(mousePos, 0.05f, false, COLOR_RED, 0.0f, true);
-        }
-        prevLeftDown = leftButtonDown;
+        drawPolygon(polygon);
 
         glfwSwapBuffers(window);
+        glfwSwapInterval(0);
         glfwPollEvents();
     }
 
