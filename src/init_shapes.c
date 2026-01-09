@@ -28,7 +28,7 @@ Body *init_ellipse(Vec2 pos, Vec2 r, Color color)
     return object;
 }
 
-Body *init_line(Vec2 a, Vec2 b, Color color, bool isDynamic)
+Body *init_line(Vec2 a, Vec2 b, Color color)
 {
     Body *object = 0;
     if (body_count < MAX_SHAPES)
@@ -43,7 +43,7 @@ Body *init_line(Vec2 a, Vec2 b, Color color, bool isDynamic)
         object->mass = 0.0f;
         object->restitution = 0.8f;
         object->friction = 0.3f;
-        object->isDynamic = isDynamic;
+        object->isDynamic = false;
         object->data.line.vertices[0] = a;
         object->data.line.vertices[1] = b;
     }
@@ -82,17 +82,32 @@ Body *init_polygon(Vec2 *vertices, int numVertices, Color color)
 
 Vec2 findCenter(Body *body)
 {
-    Vec2 center = {0.0f, 0.0f};
-    for (int i = 0; i < body->data.polygon.numVertices; i++)
+    if (body->type == SHAPE_POLYGON)
     {
-        center.x += body->data.polygon.vertices[i].x;
-        center.y += body->data.polygon.vertices[i].y;
+        Vec2 center = {0.0f, 0.0f};
+        for (int i = 0; i < body->data.polygon.numVertices; i++)
+        {
+            center.x += body->data.polygon.vertices[i].x;
+            center.y += body->data.polygon.vertices[i].y;
+        }
+
+        center.x /= body->data.polygon.numVertices;
+        center.y /= body->data.polygon.numVertices;
+
+        return center;
+    }
+    if (body->type == SHAPE_ELLIPSE)
+    {
+        return body->data.ellipse.pos;
+    }
+    if(body->type == SHAPE_LINE)
+    {
+        Vec2 A = body->data.line.vertices[0];
+        Vec2 B = body->data.line.vertices[1];
+        return (Vec2){ (A.x + B.x) * 0.5f, (A.y + B.y) * 0.5f };
     }
 
-    center.x /= body->data.polygon.numVertices;
-    center.y /= body->data.polygon.numVertices;
-
-    return center;
+    return (Vec2){0.0f, 0.0f};
 }
 
 bool removeBody(Body *body)

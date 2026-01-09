@@ -23,6 +23,8 @@ float mousePosX;
 float mousePosY;
 
 Body *polygon3;
+Body *circleMain;
+Body *line2;
 
 const char *vertexShaderSource =
     "#version 330 core\n"
@@ -108,40 +110,44 @@ void keyCallBack(GLFWwindow *window, int key, int scancode, int action, int mods
     {
         if (action == GLFW_PRESS || action == GLFW_REPEAT)
         {
-            for (int i = 0; i < polygon3->data.polygon.numVertices; i++)
+            for (int i = 0; i < 2; i++)
             {
-                polygon3->data.polygon.vertices[i].y += 0.01f;
+                line2->data.line.vertices[i].y += 0.01f;
             }
+            // circleMain->data.ellipse.pos.y += 0.01f;
         }
     }
     if (key == GLFW_KEY_S)
     {
         if (action == GLFW_PRESS || action == GLFW_REPEAT)
         {
-            for (int i = 0; i < polygon3->data.polygon.numVertices; i++)
+            for (int i = 0; i < 2; i++)
             {
-                polygon3->data.polygon.vertices[i].y -= 0.01f;
+                line2->data.line.vertices[i].y -= 0.01f;
             }
+            // circleMain->data.ellipse.pos.y -= 0.01f;
         }
     }
     if (key == GLFW_KEY_A)
     {
         if (action == GLFW_PRESS || action == GLFW_REPEAT)
         {
-            for (int i = 0; i < polygon3->data.polygon.numVertices; i++)
+            for (int i = 0; i < 2; i++)
             {
-                polygon3->data.polygon.vertices[i].x -= 0.01f;
+                line2->data.line.vertices[i].x -= 0.01f;
             }
+            // circleMain->data.ellipse.pos.x -= 0.01f;
         }
     }
     if (key == GLFW_KEY_D)
     {
         if (action == GLFW_PRESS || action == GLFW_REPEAT)
         {
-            for (int i = 0; i < polygon3->data.polygon.numVertices; i++)
+            for (int i = 0; i < 2; i++)
             {
-                polygon3->data.polygon.vertices[i].x += 0.01f;
+                line2->data.line.vertices[i].x += 0.01f;
             }
+            // circleMain->data.ellipse.pos.x += 0.01f;
         }
     }
 }
@@ -212,20 +218,22 @@ int main(void)
                                  4, (Color){1.0f, 0.0f, 0.0f, 0.2f});
     polygon->filled = true;
 
-    polygon3 = init_polygon((Vec2[]){
-                                (Vec2){0.0f, 0.25f},
-                                (Vec2){0.4f, 0.3f},
-                                (Vec2){0.4f, 0.0f},
-                                (Vec2){0.25f, -0.25f},
-                                (Vec2){-0.1f, -0.25f},
-                            },
-                            5, (Color){0.0f, 1.0f, 0.0f, 0.2f});
-    polygon3->filled = true;
+    // polygon3 = init_polygon((Vec2[]){
+    //                             (Vec2){0.0f, 0.25f},
+    //                             // (Vec2){-0.3f, 0.3f},
+    //                             (Vec2){0.4f, 0.3f},
+    //                             (Vec2){0.4f, 0.0f},
+    //                             (Vec2){0.25f, -0.25f},
+    //                             (Vec2){-0.1f, -0.25f},
+    //                         },
+    //                         5, (Color){0.0f, 1.0f, 0.0f, 0.2f});
+    // polygon3->filled = true;
+
+    circleMain = init_ellipse((Vec2){0.0f, 0.0f}, (Vec2){0.5f, 0.3f}, (Color){0.0f, 1.0f, 0.0f, 0.2f});
+    circleMain->filled = true;
 
     Body *minkowskiDiff = init_polygon((Vec2[]){0.0f, 0.0f, 0.0f}, 3, (Color){1.0f, 1.0f, 1.0f, 0.2f});
     minkowskiDiff->filled = true;
-
-    Vec2 center1 = findCenter(polygon3);
 
     Body *ellipse = init_ellipse((Vec2){0.5f, 0.0f}, (Vec2){0.1f, 0.5f}, COLOR_RED);
     ellipse->filled = true;
@@ -234,6 +242,12 @@ int main(void)
 
     Body *circle = init_ellipse((Vec2){center.x, center.y}, (Vec2){0.005f, 0.005f}, COLOR_GREEN);
     circle->filled = true;
+
+    Body *origin = init_ellipse((Vec2){0.0f, 0.0f}, (Vec2){0.005f, 0.005f}, COLOR_RED);
+
+    Body *line = init_line((Vec2){-0.5f, 0.0f}, (Vec2){0.5f, 0.0f}, COLOR_RED);
+
+    line2 = init_line((Vec2){0.0f, -0.5f}, (Vec2){0.0f, 0.5f}, COLOR_WHITE);
 
     while (!glfwWindowShouldClose(window))
     {
@@ -257,18 +271,27 @@ int main(void)
         int zoomLoc = glGetUniformLocation(shaderProgram, "uZoom");
         glUniform1f(zoomLoc, screenZoom);
 
-        createMinkowskiDifference(minkowskiDiff, polygon, polygon3, (Color){1.0f, 1.0f, 1.0f, 0.2f});
+        createMinkowskiDifference(minkowskiDiff, line, line2);
 
-        drawPolygon(polygon3);
-        Vec2 sup = support(polygon3, (Vec2){1.0f, 0.0f});
-        if(checkGJK(polygon3, polygon)) {
-            polygon3->color = COLOR_WHITE;
-            polygon->color = COLOR_WHITE;
-        } else {
-            polygon3->color = (Color){0.0f, 1.0f, 0.0f, 0.2f};
-            polygon->color = (Color){1.0f, 0.0f, 0.0f, 0.2f};
-        }
+        // drawPolygon(polygon3);
         drawPolygon(polygon);
+        drawPolygon(minkowskiDiff);
+        drawEllipse(circle);
+        drawEllipse(origin);
+        // drawEllipse(circleMain);
+        drawLine(line);
+        drawLine(line2);
+
+        if (checkGJK(line2, line))
+        {
+            line2->color = COLOR_WHITE;
+            line->color = COLOR_WHITE;
+        }
+        else
+        {
+            line2->color = (Color){0.0f, 1.0f, 0.0f, 0.2f};
+            line->color = (Color){1.0f, 0.0f, 0.0f, 0.2f};
+        }
 
         glfwSwapBuffers(window);
         glfwSwapInterval(0);

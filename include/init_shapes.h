@@ -85,7 +85,7 @@ typedef struct
 
 Body bodies[MAX_SHAPES];
 
-Body *init_line(Vec2 a, Vec2 b, Color color, bool isDynamic);
+Body *init_line(Vec2 a, Vec2 b, Color color);
 
 Body *init_polygon(Vec2 *vertices, int numVertices, Color color);
 

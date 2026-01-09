@@ -44,6 +44,18 @@ Vec2 vec_tripleProduct(Vec2 a, Vec2 b, Vec2 c)
 
     return (Vec2){
         b.x * ac - a.x * bc,
-        b.y * ac - a.y * bc
-    };
+        b.y * ac - a.y * bc};
+}
+
+float vec_length(Vec2 vec)
+{
+    return (vec.x * vec.x + vec.y * vec.y);
+}
+
+bool vec_cmp(Vec2 a, Vec2 b)
+{
+    if (a.x == b.x && a.y == b.y)
+        return true;
+
+    return false;
 }
