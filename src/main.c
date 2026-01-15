@@ -110,44 +110,44 @@ void keyCallBack(GLFWwindow *window, int key, int scancode, int action, int mods
     {
         if (action == GLFW_PRESS || action == GLFW_REPEAT)
         {
-            for (int i = 0; i < 2; i++)
-            {
-                line2->data.line.vertices[i].y += 0.01f;
-            }
-            // circleMain->data.ellipse.pos.y += 0.01f;
+            // for (int i = 0; i < 2; i++)
+            // {
+            //     line2->data.line.vertices[i].y += 0.01f;
+            // }
+            circleMain->data.ellipse.pos.y += 0.01f;
         }
     }
     if (key == GLFW_KEY_S)
     {
         if (action == GLFW_PRESS || action == GLFW_REPEAT)
         {
-            for (int i = 0; i < 2; i++)
-            {
-                line2->data.line.vertices[i].y -= 0.01f;
-            }
-            // circleMain->data.ellipse.pos.y -= 0.01f;
+            // for (int i = 0; i < 2; i++)
+            // {
+            //     line2->data.line.vertices[i].y -= 0.01f;
+            // }
+            circleMain->data.ellipse.pos.y -= 0.01f;
         }
     }
     if (key == GLFW_KEY_A)
     {
         if (action == GLFW_PRESS || action == GLFW_REPEAT)
         {
-            for (int i = 0; i < 2; i++)
-            {
-                line2->data.line.vertices[i].x -= 0.01f;
-            }
-            // circleMain->data.ellipse.pos.x -= 0.01f;
+            // for (int i = 0; i < 2; i++)
+            // {
+            //     line2->data.line.vertices[i].x -= 0.01f;
+            // }
+            circleMain->data.ellipse.pos.x -= 0.01f;
         }
     }
     if (key == GLFW_KEY_D)
     {
         if (action == GLFW_PRESS || action == GLFW_REPEAT)
         {
-            for (int i = 0; i < 2; i++)
-            {
-                line2->data.line.vertices[i].x += 0.01f;
-            }
-            // circleMain->data.ellipse.pos.x += 0.01f;
+            // for (int i = 0; i < 2; i++)
+            // {
+            //     line2->data.line.vertices[i].x += 0.01f;
+            // }
+            circleMain->data.ellipse.pos.x += 0.01f;
         }
     }
 }
@@ -218,24 +218,10 @@ int main(void)
                                  4, (Color){1.0f, 0.0f, 0.0f, 0.2f});
     polygon->filled = true;
 
-    // polygon3 = init_polygon((Vec2[]){
-    //                             (Vec2){0.0f, 0.25f},
-    //                             // (Vec2){-0.3f, 0.3f},
-    //                             (Vec2){0.4f, 0.3f},
-    //                             (Vec2){0.4f, 0.0f},
-    //                             (Vec2){0.25f, -0.25f},
-    //                             (Vec2){-0.1f, -0.25f},
-    //                         },
-    //                         5, (Color){0.0f, 1.0f, 0.0f, 0.2f});
-    // polygon3->filled = true;
-
     circleMain = init_ellipse((Vec2){0.0f, 0.0f}, (Vec2){0.5f, 0.3f}, (Color){0.0f, 1.0f, 0.0f, 0.2f});
     circleMain->filled = true;
 
-    Body *minkowskiDiff = init_polygon((Vec2[]){0.0f, 0.0f, 0.0f}, 3, (Color){1.0f, 1.0f, 1.0f, 0.2f});
-    minkowskiDiff->filled = true;
-
-    Body *ellipse = init_ellipse((Vec2){0.5f, 0.0f}, (Vec2){0.1f, 0.5f}, COLOR_RED);
+    Body *ellipse = init_ellipse((Vec2){0.5f, 0.0f}, (Vec2){0.1f, 0.2f}, COLOR_RED);
     ellipse->filled = true;
 
     Vec2 center = findCenter(polygon);
@@ -259,6 +245,17 @@ int main(void)
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
+        CollisionResult result;
+
+        if (checkCollision(polygon, circleMain, &result))
+        {
+            printf("Depth: %-20f\n", result.depth);
+            printf("Result Normal(X:%-10.4f Y:%10.4f)\n", result.normal.x, result.normal.y);
+            if(result.hit) {
+                printf("Hit\n");
+            }
+        }
+
         glUseProgram(shaderProgram);
 
         int frameBufferWidth, frameBufferHeight;
@@ -271,27 +268,8 @@ int main(void)
         int zoomLoc = glGetUniformLocation(shaderProgram, "uZoom");
         glUniform1f(zoomLoc, screenZoom);
 
-        createMinkowskiDifference(minkowskiDiff, line, line2);
-
-        // drawPolygon(polygon3);
         drawPolygon(polygon);
-        drawPolygon(minkowskiDiff);
-        drawEllipse(circle);
-        drawEllipse(origin);
-        // drawEllipse(circleMain);
-        drawLine(line);
-        drawLine(line2);
-
-        if (checkGJK(line2, line))
-        {
-            line2->color = COLOR_WHITE;
-            line->color = COLOR_WHITE;
-        }
-        else
-        {
-            line2->color = (Color){0.0f, 1.0f, 0.0f, 0.2f};
-            line->color = (Color){1.0f, 0.0f, 0.0f, 0.2f};
-        }
+        drawEllipse(circleMain);
 
         glfwSwapBuffers(window);
         glfwSwapInterval(0);

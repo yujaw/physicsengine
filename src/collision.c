@@ -1,50 +1,38 @@
 #include "collision.h"
 #include <stdlib.h>
 #include <math.h>
-
-void createMinkowskiDifference(Body *out, Body *A, Body *B)
-{
-    const int samples = 64; // number of sampled directions
-    Vec2 *pts = malloc(sizeof(Vec2) * samples);
-
-    for (int i = 0; i < samples; i++)
-    {
-        float angle = (2.0f * M_PI * i) / samples;
-        Vec2 d = (Vec2){cosf(angle), sinf(angle)};
-
-        Vec2 pA = support(A, d);
-        Vec2 pB = support(B, (Vec2){-d.x, -d.y});
-
-        pts[i] = vec_sub(pA, pB);
-    }
-
-    out->type = SHAPE_POLYGON;
-    out->data.polygon.vertices = pts;
-    out->data.polygon.numVertices = samples;
-    out->filled = false;
-}
+#include <float.h>
 
 Vec2 support(Body *body, Vec2 direction)
 {
-    if (body->type == SHAPE_POLYGON)
-    {
-        Vec2 far = body->data.polygon.vertices[0];
-        float maxDot = vec_dot(body->data.polygon.vertices[0], direction);
+    if (vec_length(direction) < 1e-8f)
+        direction = (Vec2){1.0f, 0.0f};
+    else
+        direction = vec_normalize(direction);
 
-        for (int i = 1; i < body->data.polygon.numVertices; i++)
+    switch (body->type)
+    {
+    case SHAPE_POLYGON:
+    {
+        Vec2 *verts = body->data.polygon.vertices;
+        int n = body->data.polygon.numVertices;
+
+        Vec2 best = verts[0];
+        float bestDot = vec_dot(best, direction);
+
+        for (int i = 1; i < n; i++)
         {
-            float dot = vec_dot(body->data.polygon.vertices[i], direction);
-            if (dot > maxDot)
+            float d = vec_dot(verts[i], direction);
+            if (d > bestDot)
             {
-                maxDot = dot;
-                far = body->data.polygon.vertices[i];
+                bestDot = d;
+                best = verts[i];
             }
         }
-
-        return far;
+        return best;
     }
 
-    if (body->type == SHAPE_ELLIPSE)
+    case SHAPE_ELLIPSE:
     {
         float dx = direction.x;
         float dy = direction.y;
@@ -54,26 +42,28 @@ Vec2 support(Body *body, Vec2 direction)
 
         float denom = sqrtf((rx * dx) * (rx * dx) + (ry * dy) * (ry * dy));
 
-        // Avoid division by zero
-        if (denom == 0)
+        if (denom < 1e-8f) // If degenerate, fall back to center
             return body->data.ellipse.pos;
 
-        Vec2 out = {
+        return (Vec2){
             body->data.ellipse.pos.x + (rx * rx * dx) / denom,
             body->data.ellipse.pos.y + (ry * ry * dy) / denom};
-
-        return out;
     }
 
-    if (body->type == SHAPE_LINE)
+    case SHAPE_LINE:
     {
         Vec2 A = body->data.line.vertices[0];
         Vec2 B = body->data.line.vertices[1];
 
-        return (vec_dot(A, direction) > vec_dot(B, direction)) ? A : B;
+        float da = vec_dot(A, direction);
+        float db = vec_dot(B, direction);
+
+        return (da > db) ? A : B;
     }
 
-    return (Vec2){0.0f, 0.0f};
+    default:
+        return (Vec2){0.0f, 0.0f};
+    }
 }
 
 bool handleLine(Vec2 *simplex, int *count, Vec2 *dir)
@@ -84,10 +74,15 @@ bool handleLine(Vec2 *simplex, int *count, Vec2 *dir)
     Vec2 AO = vec_neg(A);
     Vec2 AB = vec_sub(B, A);
 
-    if (vec_dot(AB, AO) > 0)
+    Vec2 perp = vec_tripleProduct(AB, AO, AB);
+
+    if (vec_length(perp) < 1e-6)
     {
-        *dir = vec_tripleProduct(AB, AO, AB);
+        perp = (Vec2){AB.y, -AB.x};
     }
+
+    if (vec_dot(AB, AO) > 0)
+        *dir = perp;
     else
     {
         simplex[0] = A;
@@ -148,88 +143,46 @@ bool handleSimplex(Vec2 *simplex, int *count, Vec2 *dir)
     return false;
 }
 
-bool checkGJK(Body *A, Body *B)
+bool checkGJK(Body *A, Body *B, Vec2 simplexOut[3], int *simplexCountOut)
 {
-    if (A->type == SHAPE_POLYGON)
-    {
-        if (!polygonIsConvex(A->data.polygon.vertices, A->data.polygon.numVertices))
-            return false;
-    }
-
-    if (B->type == SHAPE_POLYGON)
-    {
-        if (!polygonIsConvex(B->data.polygon.vertices, B->data.polygon.numVertices))
-            return false;
-    }
-
-    if (vec_cmp(findCenter(A), findCenter(B)))
-        return true;
-
     Vec2 simplex[3];
     int count = 0;
 
     // Initial direction
     Vec2 direction = vec_sub(findCenter(A), findCenter(B));
-    if (direction.x == 0 && direction.y == 0)
-    {
-        direction = (Vec2){1.0f, 0.0f};
-    }
-    if (fabs(direction.x) < 1e-6 && fabs(direction.y) < 1e-6)
-    {
-        direction = (Vec2){1.0f, 0.0f};
-    }
-    else if (fabs(direction.x) < 1e-6)
-    {
-        direction = (Vec2){1.0f, 0.0f};
-    }
-    else if (fabs(direction.y) < 1e-6)
-    {
-        direction = (Vec2){0.0f, 1.0f};
-    }
+    if (vec_length(direction) < 1e-8)
+        direction = (Vec2){1, 0};
 
-    // First support point
-    simplex[count++] = vec_sub(support(A, direction), support(B, vec_neg(direction)));
+    // First support
+    simplex[count++] = vec_sub(support(A, direction),
+                               support(B, vec_neg(direction)));
 
-    // New search direction toward origin
     direction = vec_neg(simplex[0]);
 
-    while (true)
+    while (1)
     {
-        if (vec_length(direction) < 1e-6f)
-            direction = (Vec2){-direction.y, direction.x}; // perpendicular perturbation
+        if (vec_length(direction) < 1e-6)
+            direction = (Vec2){-direction.y, direction.x};
 
-        Vec2 Anew = vec_sub(support(A, direction), support(B, vec_neg(direction)));
+        Vec2 newPoint = vec_sub(support(A, direction),
+                                support(B, vec_neg(direction)));
 
-        if (vec_dot(Anew, direction) <= 0)
+        // No collision
+        if (vec_dot(newPoint, direction) <= 0)
             return false;
 
-        simplex[count++] = Anew;
+        simplex[count++] = newPoint;
 
         if (handleSimplex(simplex, &count, &direction))
         {
-            drawSimplex(simplex, count);
+            // OUTPUT SIMPLEX CLEANLY
+            for (int i = 0; i < count; i++)
+                simplexOut[i] = simplex[i];
+
+            *simplexCountOut = count;
             return true;
         }
     }
-}
-void drawSimplex(Vec2 *simplex, int count)
-{
-    // Copy simplex vertices into temporary buffer
-    Vec2 *verts = malloc(sizeof(Vec2) * count);
-    for (int i = 0; i < count; i++)
-        verts[i] = vec_neg(simplex[i]);
-
-    // Create a temporary body
-    Body temp;
-    temp.type = SHAPE_POLYGON;
-    temp.color = (Color){0.0f, 1.0f, 0.0f, 0.2f};
-    temp.filled = true;
-    temp.data.polygon.vertices = verts;
-    temp.data.polygon.numVertices = count;
-
-    drawPolygon(&temp);
-
-    free(verts);
 }
 
 bool polygonIsConvex(Vec2 *p, int n)
@@ -248,4 +201,92 @@ bool polygonIsConvex(Vec2 *p, int n)
             return false;
     }
     return true;
+}
+
+CollisionResult calculateEPA(Body *A, Body *B, Vec2 simplex[3], int simplexCount)
+{
+    const float EPS = 1e-8f;
+    const int MAX_ITER = 64;
+    Vec2 poly[64];
+    int count = simplexCount;
+
+    // Copy simplex into polytope
+    for (int i = 0; i < count; i++)
+        poly[i] = simplex[i];
+
+    for (int iter = 0; iter < MAX_ITER; iter++)
+    {
+        float minDist = FLT_MAX;
+        int edge = -1;
+        Vec2 bestNormal = {0.0f, 0.0f};
+
+        for (int i = 0; i < count; i++)
+        {
+            Vec2 a = poly[i];
+            Vec2 b = poly[(i + 1) % count];
+            Vec2 e = vec_sub(b, a);
+
+            Vec2 n = (Vec2){e.y, -e.x};
+            n = vec_normalize(n);
+
+            float dist = vec_dot(n, a);
+
+            if (dist < 0)
+            {
+                n = vec_neg(n);
+                dist = -dist;
+            }
+
+            if (dist < minDist)
+            {
+                minDist = dist;
+                bestNormal = n;
+                edge = i;
+            }
+        }
+
+        if (edge < 0)
+            return (CollisionResult){.hit = false};
+
+        Vec2 p = vec_sub(
+            support(A, bestNormal),
+            support(B, vec_neg(bestNormal)));
+
+        float pDist = vec_dot(bestNormal, p);
+
+        if (pDist - minDist < EPS)
+        {
+            return (CollisionResult){
+                .hit = true,
+                .normal = bestNormal,
+                .depth = minDist};
+        }
+
+        for (int i = count; i > edge + 1; i--)
+            poly[i] = poly[i - 1];
+        poly[edge + 1] = p;
+        count++;
+
+        if (count >= 63)
+            break;
+    }
+
+    return (CollisionResult){.hit = false};
+}
+
+bool checkCollision(Body *A, Body *B, CollisionResult *out)
+{
+    Vec2 simplex[3];
+    int simplexCount = 0;
+
+    // Run GJK
+    if (!checkGJK(A, B, simplex, &simplexCount))
+    {
+        out->hit = false;
+        return false;
+    }
+
+    // Run EPA
+    *out = calculateEPA(A, B, simplex, simplexCount);
+    return out->hit;
 }

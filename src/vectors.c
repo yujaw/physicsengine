@@ -49,13 +49,10 @@ Vec2 vec_tripleProduct(Vec2 a, Vec2 b, Vec2 c)
 
 float vec_length(Vec2 vec)
 {
-    return (vec.x * vec.x + vec.y * vec.y);
+    return sqrtf(vec.x * vec.x + vec.y * vec.y);
 }
 
 bool vec_cmp(Vec2 a, Vec2 b)
 {
-    if (a.x == b.x && a.y == b.y)
-        return true;
-
-    return false;
+    return fabs(a.x - b.x) < 1e-6f && fabs(a.y - b.y) < 1e-6f;
 }

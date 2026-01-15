@@ -25,9 +25,6 @@ void setColor(Color color)
 
 void drawEllipse(Body *body)
 {
-    if (body->type != SHAPE_ELLIPSE)
-        return;
-
     int steps = (int)ceilf(body->data.ellipse.r.x * 200.0f);
     if (steps < 24)
         steps = 24;
