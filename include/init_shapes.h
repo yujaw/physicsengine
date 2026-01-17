@@ -79,6 +79,7 @@ typedef struct
         {
             Vec2 pos;
             Vec2 r;
+            float rotation;
         } ellipse;
     } data;
 } Body;

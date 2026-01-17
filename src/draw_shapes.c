@@ -25,28 +25,45 @@ void setColor(Color color)
 
 void drawEllipse(Body *body)
 {
+    if (body->type != SHAPE_ELLIPSE)
+        return;
+
     int steps = (int)ceilf(body->data.ellipse.r.x * 200.0f);
     if (steps < 24)
         steps = 24;
     if (steps > 64)
         steps = 64;
 
-    float angStep = 2.0f * PI / steps;
+    float angStep = 2.0f * M_PI / steps;
 
     setColor(body->color);
+
+    float cosA = cosf(body->data.ellipse.rotation);
+    float sinA = sinf(body->data.ellipse.rotation);
+    Vec2 center = body->data.ellipse.pos;
 
     if (body->filled)
     {
         float verts[(steps + 2) * 2];
 
-        verts[0] = body->data.ellipse.pos.x;
-        verts[1] = body->data.ellipse.pos.y;
+        // Center vertex
+        verts[0] = center.x;
+        verts[1] = center.y;
 
         for (int i = 0; i <= steps; i++)
         {
             float t = i * angStep;
-            verts[2 + 2 * i] = body->data.ellipse.pos.x + cosf(t) * body->data.ellipse.r.x;
-            verts[2 + 2 * i + 1] = body->data.ellipse.pos.y + sinf(t) * body->data.ellipse.r.y;
+
+            // Axis-aligned ellipse point
+            float x = cosf(t) * body->data.ellipse.r.x;
+            float y = sinf(t) * body->data.ellipse.r.y;
+
+            // Rotate point by body->rotation
+            float xr = x * cosA - y * sinA;
+            float yr = x * sinA + y * cosA;
+
+            verts[2 + 2 * i] = center.x + xr;
+            verts[2 + 2 * i + 1] = center.y + yr;
         }
 
         glBindVertexArray(VAO_global);
@@ -63,8 +80,15 @@ void drawEllipse(Body *body)
         for (int i = 0; i <= steps; i++)
         {
             float t = i * angStep;
-            verts[2 * i] = body->data.ellipse.pos.x + cosf(t) * body->data.ellipse.r.x;
-            verts[2 * i + 1] = body->data.ellipse.pos.y + sinf(t) * body->data.ellipse.r.y;
+
+            float x = cosf(t) * body->data.ellipse.r.x;
+            float y = sinf(t) * body->data.ellipse.r.y;
+
+            float xr = x * cosA - y * sinA;
+            float yr = x * sinA + y * cosA;
+
+            verts[2 * i] = center.x + xr;
+            verts[2 * i + 1] = center.y + yr;
         }
 
         glBindVertexArray(VAO_global);
@@ -72,7 +96,7 @@ void drawEllipse(Body *body)
         glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
         glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, 0);
         glEnableVertexAttribArray(0);
-        glDrawArrays(GL_LINE_LOOP, 0, steps);
+        glDrawArrays(GL_LINE_LOOP, 0, steps + 1);
     }
 }
 
