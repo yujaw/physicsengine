@@ -16,6 +16,12 @@
 ## Ongoing Works
 **Currently working on implementing multi-particle collision system**
 
+## ToDo
+- **Properly produce shape even when the coords is not in order**
+    - Convex Hull
+- **Decompose concave shapes into group of convex shapes**
+- **Use K-D tree to optimize collisions between bodies**
+
 <br/>
 
 ---
