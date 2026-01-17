@@ -7,9 +7,7 @@
 #include "collision.h"
 #include "vectors.h"
 #include "fps.h"
-
-#define pi 3.1415926535897932384626433f
-#define gravity 0.0f
+#include "movement.h"
 
 GLFWwindow *window;
 GLuint VAO, VBO;
@@ -23,8 +21,8 @@ float mousePosX;
 float mousePosY;
 
 Body *polygon3;
-Body *circleMain;
-Body *line2;
+Body *circle;
+Body *line;
 
 const char *vertexShaderSource =
     "#version 330 core\n"
@@ -70,84 +68,38 @@ void keyCallBack(GLFWwindow *window, int key, int scancode, int action, int mods
 {
     if (key == GLFW_KEY_Q && (action == GLFW_PRESS || action == GLFW_REPEAT))
     {
-        // Rotation Matrix
-        // [cos -sin
-        // sin cos]
-        // x cos - y sin
-        // x sin + y cos
-        float angle = -0.02f;
-        float sin = sinf(angle);
-        float cos = cosf(angle);
-        Vec2 center = findCenter(polygon3);
-        for (int i = 0; i < polygon3->data.polygon.numVertices; i++)
-        {
-            float x = polygon3->data.polygon.vertices[i].x - center.x;
-            float y = polygon3->data.polygon.vertices[i].y - center.y;
-            polygon3->data.polygon.vertices[i].x = (x * cos - y * sin) + center.x;
-            polygon3->data.polygon.vertices[i].y = (x * sin + y * cos) + center.y;
-        }
+        rotate(line, 0.02f);
     }
     if (key == GLFW_KEY_E && (action == GLFW_PRESS || action == GLFW_REPEAT))
     {
-        // Rotation Matrix
-        // [cos -sin
-        // sin cos]
-        // x cos - y sin
-        // x sin + y cos
-        float angle = 0.02f;
-        float sin = sinf(angle);
-        float cos = cosf(angle);
-        Vec2 center = findCenter(polygon3);
-        for (int i = 0; i < polygon3->data.polygon.numVertices; i++)
-        {
-            float x = polygon3->data.polygon.vertices[i].x - center.x;
-            float y = polygon3->data.polygon.vertices[i].y - center.y;
-            polygon3->data.polygon.vertices[i].x = (x * cos - y * sin) + center.x;
-            polygon3->data.polygon.vertices[i].y = (x * sin + y * cos) + center.y;
-        }
+        rotate(line, -0.02f);
     }
     if (key == GLFW_KEY_W)
     {
         if (action == GLFW_PRESS || action == GLFW_REPEAT)
         {
-            // for (int i = 0; i < 2; i++)
-            // {
-            //     line2->data.line.vertices[i].y += 0.01f;
-            // }
-            circleMain->data.ellipse.pos.y += 0.01f;
+            move(line, 0.0f, 0.01f);
         }
     }
     if (key == GLFW_KEY_S)
     {
         if (action == GLFW_PRESS || action == GLFW_REPEAT)
         {
-            // for (int i = 0; i < 2; i++)
-            // {
-            //     line2->data.line.vertices[i].y -= 0.01f;
-            // }
-            circleMain->data.ellipse.pos.y -= 0.01f;
+            move(line, 0.0f, -0.01f);
         }
     }
     if (key == GLFW_KEY_A)
     {
         if (action == GLFW_PRESS || action == GLFW_REPEAT)
         {
-            // for (int i = 0; i < 2; i++)
-            // {
-            //     line2->data.line.vertices[i].x -= 0.01f;
-            // }
-            circleMain->data.ellipse.pos.x -= 0.01f;
+            move(line, -0.01f, 0.0f);
         }
     }
     if (key == GLFW_KEY_D)
     {
         if (action == GLFW_PRESS || action == GLFW_REPEAT)
         {
-            // for (int i = 0; i < 2; i++)
-            // {
-            //     line2->data.line.vertices[i].x += 0.01f;
-            // }
-            circleMain->data.ellipse.pos.x += 0.01f;
+            move(line, 0.01f, 0.0f);
         }
     }
 }
@@ -218,22 +170,18 @@ int main(void)
                                  4, (Color){1.0f, 0.0f, 0.0f, 0.2f});
     polygon->filled = true;
 
-    circleMain = init_ellipse((Vec2){0.0f, 0.0f}, (Vec2){0.5f, 0.3f}, (Color){0.0f, 1.0f, 0.0f, 0.2f});
-    circleMain->filled = true;
+    polygon3 = init_polygon((Vec2[]){
+                                (Vec2){0.5f, 0.0f},
+                                (Vec2){0.5f, 0.5f},
+                                (Vec2){0.0f, 0.5f},
+                                (Vec2){0.0f, 0.0f},
+                            },
+                            4, (Color){0.0f, 0.0f, 1.0f, 0.2f});
 
-    Body *ellipse = init_ellipse((Vec2){0.5f, 0.0f}, (Vec2){0.1f, 0.2f}, COLOR_RED);
-    ellipse->filled = true;
+    polygon3->filled = true;
 
-    Vec2 center = findCenter(polygon);
-
-    Body *circle = init_ellipse((Vec2){center.x, center.y}, (Vec2){0.005f, 0.005f}, COLOR_GREEN);
-    circle->filled = true;
-
-    Body *origin = init_ellipse((Vec2){0.0f, 0.0f}, (Vec2){0.005f, 0.005f}, COLOR_RED);
-
-    Body *line = init_line((Vec2){-0.5f, 0.0f}, (Vec2){0.5f, 0.0f}, COLOR_RED);
-
-    line2 = init_line((Vec2){0.0f, -0.5f}, (Vec2){0.0f, 0.5f}, COLOR_WHITE);
+    circle = init_ellipse((Vec2){0.0f, 0.0f}, (Vec2){0.4f, 0.2f}, COLOR_RED);
+    line = init_line((Vec2){0.0f, 0.0f}, (Vec2){0.5f, 0.0f}, COLOR_GREEN);
 
     while (!glfwWindowShouldClose(window))
     {
@@ -247,13 +195,9 @@ int main(void)
 
         CollisionResult result;
 
-        if (checkCollision(polygon, circleMain, &result))
+        if (checkCollision(polygon, circle, &result))
         {
-            printf("Depth: %-20f\n", result.depth);
-            printf("Result Normal(X:%-10.4f Y:%10.4f)\n", result.normal.x, result.normal.y);
-            if(result.hit) {
-                printf("Hit\n");
-            }
+            printf("%f\n", result.depth);
         }
 
         glUseProgram(shaderProgram);
@@ -269,7 +213,9 @@ int main(void)
         glUniform1f(zoomLoc, screenZoom);
 
         drawPolygon(polygon);
-        drawEllipse(circleMain);
+        drawPolygon(polygon3);
+        drawEllipse(circle);
+        drawLine(line);
 
         glfwSwapBuffers(window);
         glfwSwapInterval(0);
