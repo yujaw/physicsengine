@@ -34,20 +34,32 @@ Vec2 support(Body *body, Vec2 direction)
 
     case SHAPE_ELLIPSE:
     {
-        float dx = direction.x;
-        float dy = direction.y;
+        // rotate direction into ellipse local frame
+        float cosA = cosf(-body->data.ellipse.rotation);
+        float sinA = sinf(-body->data.ellipse.rotation);
+
+        Vec2 localDir = {
+            direction.x * cosA - direction.y * sinA,
+            direction.x * sinA + direction.y * cosA};
 
         float rx = body->data.ellipse.r.x;
         float ry = body->data.ellipse.r.y;
 
-        float denom = sqrtf((rx * dx) * (rx * dx) + (ry * dy) * (ry * dy));
-
-        if (denom < 1e-8f) // If degenerate, fall back to center
+        float denom = sqrtf((rx * localDir.x) * (rx * localDir.x) + (ry * localDir.y) * (ry * localDir.y));
+        if (denom < 1e-8f)
             return body->data.ellipse.pos;
 
+        Vec2 localPoint = {
+            (rx * rx * localDir.x) / denom,
+            (ry * ry * localDir.y) / denom};
+
+        // rotate back to world frame
+        cosA = cosf(body->data.ellipse.rotation);
+        sinA = sinf(body->data.ellipse.rotation);
+
         return (Vec2){
-            body->data.ellipse.pos.x + (rx * rx * dx) / denom,
-            body->data.ellipse.pos.y + (ry * ry * dy) / denom};
+            localPoint.x * cosA - localPoint.y * sinA + body->data.ellipse.pos.x,
+            localPoint.x * sinA + localPoint.y * cosA + body->data.ellipse.pos.y};
     }
 
     case SHAPE_LINE:
