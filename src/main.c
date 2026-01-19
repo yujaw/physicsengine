@@ -8,6 +8,7 @@
 #include "vectors.h"
 #include "fps.h"
 #include "movement.h"
+#include "kdtree.h"
 
 GLFWwindow *window;
 GLuint VAO, VBO;
@@ -23,6 +24,8 @@ float mousePosY;
 Body *polygon3;
 Body *circle;
 Body *line;
+
+KDNode *node;
 
 const char *vertexShaderSource =
     "#version 330 core\n"
@@ -190,14 +193,49 @@ int main(void)
         sprintf(title, "Physics Simulator - FPS: %.1f", currentFPS);
         glfwSetWindowTitle(window, title);
 
+        line->color = COLOR_RED;
+        polygon3->color = COLOR_RED;
+        circle->color = COLOR_GREEN;
+
+        kd_free(node);
+        node = NULL;
+
+        for (int i = 0; i < body_count; i++)
+        {
+            Body *b = &bodies[i];
+            Vec2 center = findCenter(b);
+            node = kd_insert(node, center, b, 0);
+        }
+
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
-        CollisionResult result;
+        Body *candidates[64];
 
-        if (checkCollision(polygon, circle, &result))
+        for (int i = 0; i < body_count; i++)
         {
-            printf("%f\n", result.depth);
+            Body *b = &bodies[i];
+            Vec2 center = findCenter(b);
+            int count = 0;
+
+            float radius = 1.0f; // Adjust based on largest shape size
+            kd_search_range(node, center, radius, 0, candidates, &count);
+
+            for (int j = 0; j < count; j++)
+            {
+                Body *other = candidates[j];
+
+                // Avoid self-collision and double counting
+                if (other->id <= b->id)
+                    continue;
+
+                CollisionResult result;
+                if (checkCollision(b, other, &result))
+                {
+                    b->color = COLOR_WHITE;
+                    other->color = COLOR_WHITE;
+                }
+            }
         }
 
         glUseProgram(shaderProgram);

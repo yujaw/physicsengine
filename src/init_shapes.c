@@ -24,7 +24,7 @@ Body *init_ellipse(Vec2 pos, Vec2 r, Color color)
         object->data.ellipse.r = r;
         object->data.ellipse.pos = pos;
     }
-
+    
     return object;
 }
 

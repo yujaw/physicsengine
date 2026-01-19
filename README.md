@@ -12,6 +12,7 @@
 
 ## Collision
 **Used Gilbert Johnson Keerthi _GJK_ Algorithm for Collision Detection and Expanding Polytope Algorithm _EPA_ for Collision Data**
+**Used K-dimension trees for optimizing collision between multiple bodies**
 
 ## Ongoing Works
 **Currently working on implementing multi-particle collision system**
@@ -20,7 +21,6 @@
 - **Properly produce shape even when the coords is not in order**
     - Convex Hull
 - **Decompose concave shapes into group of convex shapes**
-- **Use K-D tree to optimize collisions between bodies**
 
 <br/>
 

@@ -69,11 +69,13 @@ typedef struct
         struct
         {
             Vec2 vertices[2];
+            Vec2 center;
         } line;
         struct
         {
             Vec2 *vertices;
             int numVertices;
+            Vec2 center;
         } polygon;
         struct
         {
