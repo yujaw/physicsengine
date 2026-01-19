@@ -1,8 +1,10 @@
+#ifndef SHAPES_H
+#define SHAPES_H
+
 #include <stdbool.h>
 #include "vectors.h"
 
-#ifndef SHAPES_H
-#define SHAPES_H
+#define MAX_SHAPES 1000
 
 #define COLOR_RED (Color){1.0f, 0.0f, 0.0f, 1.0f}
 #define COLOR_GREEN (Color){0.0f, 1.0f, 0.0f, 1.0f}
@@ -10,6 +12,7 @@
 #define COLOR_YELLOW (Color){1.0f, 1.0f, 0.0f, 1.0f}
 #define COLOR_WHITE (Color){1.0f, 1.0f, 1.0f, 1.0f}
 #define COLOR_BLACK (Color){0.0f, 0.0f, 0.0f, 1.0f}
+#define COLOR_ORANGE (Color){1.0f, .6f, 0.3f, 1.0f};
 
 extern int body_count;
 
@@ -20,8 +23,6 @@ typedef struct
     float b;
     float a;
 } Color;
-
-#define MAX_SHAPES 100
 
 typedef struct
 {
@@ -86,7 +87,7 @@ typedef struct
     } data;
 } Body;
 
-Body bodies[MAX_SHAPES];
+extern Body bodies[MAX_SHAPES];
 
 Body *init_line(Vec2 a, Vec2 b, Color color);
 

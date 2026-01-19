@@ -11,9 +11,9 @@
     - Line is a shape with two vectors ___a starting point and an ending point___
 
 ## Collision
-**Used Gilbert Johnson Keerthi _GJK_ Algorithm for Collision Detection and Expanding Polytope Algorithm _EPA_ for Collision Data**
+- **Used Gilbert Johnson Keerthi _GJK_ Algorithm for Collision Detection and Expanding Polytope Algorithm _EPA_ for Collision Data**
 
-**Used K-dimension trees for optimizing collision between multiple bodies**
+- **Used K-dimension trees for optimizing collision between multiple bodies**
 
 ## ToDo
 - **Properly produce shape even when the coords is not in order**

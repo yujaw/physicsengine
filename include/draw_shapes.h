@@ -10,5 +10,6 @@ void drawPolygon(Body *body);
 void drawLine(Body *body);
 void drawEllipse(Body *body);
 void drawAllShapes();
+void draw(Body* body);
 
 #endif

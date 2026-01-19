@@ -3,6 +3,7 @@
 #include <stdlib.h>
 
 int body_count;
+Body bodies[MAX_SHAPES];
 
 Body *init_ellipse(Vec2 pos, Vec2 r, Color color)
 {

@@ -10,7 +10,7 @@
 #include "movement.h"
 #include "kdtree.h"
 
-#define gravity 9.8f
+#define gravity 1.0f
 
 GLFWwindow *window;
 GLuint VAO, VBO;
@@ -22,6 +22,11 @@ float screenZoom = 1.0f;
 
 float mousePosX;
 float mousePosY;
+
+float left = -1.0f;
+float right = 1.0f;
+float bottom = -1.0f;
+float top = 1.0f;
 
 KDNode *node;
 
@@ -162,13 +167,15 @@ int main(void)
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
 
-    for (int i = 0; i < 100; i++)
+    for (int i = 0; i < 200; i++)
     {
         Vec2 pos = {(float)(rand() % 200 - 100) / 100.0f,
                     (float)(rand() % 200 - 100) / 100.0f};
         Vec2 radius = {0.05f, 0.05f};
 
-        init_ellipse(pos, radius, COLOR_RED)->filled = true;
+        Body *b = init_ellipse(pos, radius, COLOR_RED);
+        b->filled = true;
+        b->isDynamic = true;
     }
 
     while (!glfwWindowShouldClose(window))
@@ -197,10 +204,11 @@ int main(void)
         {
             Body *b = &bodies[i];
             Vec2 center = findCenter(b);
-            int count = 0;
 
-            float radius = 1.0f;
-            kd_search_range(node, center, radius, 0, candidates, &count);
+            int count = 0;
+            Body *candidates[64];
+            float searchRadius = b->data.ellipse.r.x * 2.0f;
+            kd_search_range(node, center, searchRadius, 0, candidates, &count);
 
             for (int j = 0; j < count; j++)
             {
@@ -212,32 +220,66 @@ int main(void)
                 CollisionResult result;
                 if (checkCollision(b, other, &result))
                 {
-                    b->color = COLOR_WHITE;
-                    other->color = COLOR_WHITE;
+                    if (!result.hit)
+                        continue;
+
+                    float percent = 0.95f;
+                    float slop = 0.000001f;
+
+                    float correctionDepth = fmaxf(result.depth - slop, 0.0f) * percent;
+
+                    float correction = correctionDepth / 2.0f;
+
+                    // Apply positional correction along the normal
+                    b->data.ellipse.pos.x -= result.normal.x * correction;
+                    b->data.ellipse.pos.y -= result.normal.y * correction;
+                    other->data.ellipse.pos.x += result.normal.x * correction;
+                    other->data.ellipse.pos.y += result.normal.y * correction;
                 }
             }
         }
 
         glUseProgram(shaderProgram);
 
-        float dt = 1.0f / (float)currentFPS; // assuming 60 FPS; you can calculate real dt
+        float dt = 1.0f / 60.0f;
+        float scaledGravity = 0.001f; // tune as needed
 
         for (int i = 0; i < body_count; i++)
         {
-
             Body *b = &bodies[i];
-            if (b->isDynamic)
+            if (!b->isDynamic)
+                continue;
+
+            b->velocity.y -= scaledGravity * dt;
+
+            b->data.ellipse.pos.x += b->velocity.x * dt;
+            b->data.ellipse.pos.y += b->velocity.y * dt;
+
+            float radiusX = b->data.ellipse.r.x;
+            float radiusY = b->data.ellipse.r.y;
+
+            if (b->data.ellipse.pos.x - radiusX < left)
             {
-
-                // Apply gravity (scaled for normalized coordinates)
-                float scaledGravity = 1.0f; // try 1.0f, 2.0f, etc.
-                b->velocity.y -= scaledGravity * dt;
-
-                b->data.ellipse.pos.x += b->velocity.x * dt;
-                b->data.ellipse.pos.y += b->velocity.y * dt;
+                b->data.ellipse.pos.x = left + radiusX;
+                b->velocity.x *= -1.0f;
+            }
+            if (b->data.ellipse.pos.x + radiusX > right)
+            {
+                b->data.ellipse.pos.x = right - radiusX;
+                b->velocity.x *= -1.0f;
+            }
+            if (b->data.ellipse.pos.y - radiusY < bottom)
+            {
+                b->data.ellipse.pos.y = bottom + radiusY;
+                b->velocity.y *= -1.0f;
+            }
+            if (b->data.ellipse.pos.y + radiusY > top)
+            {
+                b->data.ellipse.pos.y = top - radiusY;
+                b->velocity.y *= -1.0f;
             }
 
-            drawEllipse(&bodies[i]);
+            draw(b);
         }
 
         int frameBufferWidth, frameBufferHeight;

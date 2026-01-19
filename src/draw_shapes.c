@@ -5,8 +5,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#define PI 3.14159265358979323846f
-
 static GLuint VAO_global;
 static GLuint VBO_global;
 static GLint colorLocation_global;
@@ -25,7 +23,7 @@ void setColor(Color color)
 
 void drawEllipse(Body *body)
 {
-    if (body->type != SHAPE_ELLIPSE)
+    if (body->type != SHAPE_ELLIPSE || body_count >= MAX_SHAPES)
         return;
 
     int steps = (int)ceilf(body->data.ellipse.r.x * 200.0f);
@@ -102,6 +100,9 @@ void drawEllipse(Body *body)
 
 void drawLine(Body *body)
 {
+    if (body->type != SHAPE_LINE || body_count >= MAX_SHAPES)
+        return;
+
     float v[] = {body->data.line.vertices[0].x, body->data.line.vertices[0].y, body->data.line.vertices[1].x, body->data.line.vertices[1].y};
 
     setColor(body->color);
@@ -116,6 +117,9 @@ void drawLine(Body *body)
 
 void drawPolygon(Body *body)
 {
+    if (body->type != SHAPE_POLYGON || body_count >= MAX_SHAPES)
+        return;
+
     int numVertices = body->data.polygon.numVertices;
     Vec2 *vertices = body->data.polygon.vertices;
 
@@ -156,21 +160,42 @@ void drawPolygon(Body *body)
     free(v);
 }
 
+void draw(Body *body)
+{
+    switch (body->type)
+    {
+    case SHAPE_LINE:
+        drawLine(body);
+        break;
+    case SHAPE_POLYGON:
+        drawPolygon(body);
+        break;
+    case SHAPE_ELLIPSE:
+        drawEllipse(body);
+        break;
+    default:
+        break;
+    }
+}
+
 void drawAllShapes()
 {
     for (int i = 0; i < body_count; i++)
     {
-        if (bodies[i].type == SHAPE_ELLIPSE)
+        Body *a = &bodies[i];
+        switch (a->type)
         {
-            drawEllipse(&bodies[i]);
-        }
-        else if (bodies[i].type == SHAPE_LINE)
-        {
+        case SHAPE_LINE:
             drawLine(&bodies[i]);
-        }
-        else if (bodies[i].type == SHAPE_POLYGON)
-        {
+            break;
+        case SHAPE_POLYGON:
             drawPolygon(&bodies[i]);
+            break;
+        case SHAPE_ELLIPSE:
+            drawEllipse(&bodies[i]);
+            break;
+        default:
+            break;
         }
     }
 }
