@@ -1,11 +1,11 @@
+#ifndef COLLISION_H
+#define COLLISION_H
+
 #include "init_shapes.h"
 #include "draw_shapes.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <vectors.h>
-
-#ifndef COLLISION_H
-#define COLLISION_H
 
 typedef struct
 {

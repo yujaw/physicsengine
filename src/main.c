@@ -10,6 +10,8 @@
 #include "movement.h"
 #include "kdtree.h"
 
+#define gravity 9.8f
+
 GLFWwindow *window;
 GLuint VAO, VBO;
 int colorLocation;
@@ -20,10 +22,6 @@ float screenZoom = 1.0f;
 
 float mousePosX;
 float mousePosY;
-
-Body *polygon3;
-Body *circle;
-Body *line;
 
 KDNode *node;
 
@@ -71,38 +69,38 @@ void keyCallBack(GLFWwindow *window, int key, int scancode, int action, int mods
 {
     if (key == GLFW_KEY_Q && (action == GLFW_PRESS || action == GLFW_REPEAT))
     {
-        rotate(line, 0.02f);
+        // rotate(line, 0.02f);
     }
     if (key == GLFW_KEY_E && (action == GLFW_PRESS || action == GLFW_REPEAT))
     {
-        rotate(line, -0.02f);
+        // rotate(line, -0.02f);
     }
     if (key == GLFW_KEY_W)
     {
         if (action == GLFW_PRESS || action == GLFW_REPEAT)
         {
-            move(line, 0.0f, 0.01f);
+            // move(line, 0.0f, 0.01f);
         }
     }
     if (key == GLFW_KEY_S)
     {
         if (action == GLFW_PRESS || action == GLFW_REPEAT)
         {
-            move(line, 0.0f, -0.01f);
+            // move(line, 0.0f, -0.01f);
         }
     }
     if (key == GLFW_KEY_A)
     {
         if (action == GLFW_PRESS || action == GLFW_REPEAT)
         {
-            move(line, -0.01f, 0.0f);
+            // move(line, -0.01f, 0.0f);
         }
     }
     if (key == GLFW_KEY_D)
     {
         if (action == GLFW_PRESS || action == GLFW_REPEAT)
         {
-            move(line, 0.01f, 0.0f);
+            // move(line, 0.01f, 0.0f);
         }
     }
 }
@@ -164,27 +162,14 @@ int main(void)
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
 
-    Body *polygon = init_polygon((Vec2[]){
-                                     (Vec2){-0.5f, -0.5f},
-                                     (Vec2){-0.5f, -0.25f},
-                                     (Vec2){-0.25f, -0.25f},
-                                     (Vec2){-0.25f, -0.5f},
-                                 },
-                                 4, (Color){1.0f, 0.0f, 0.0f, 0.2f});
-    polygon->filled = true;
+    for (int i = 0; i < 100; i++)
+    {
+        Vec2 pos = {(float)(rand() % 200 - 100) / 100.0f,
+                    (float)(rand() % 200 - 100) / 100.0f};
+        Vec2 radius = {0.05f, 0.05f};
 
-    polygon3 = init_polygon((Vec2[]){
-                                (Vec2){0.5f, 0.0f},
-                                (Vec2){0.5f, 0.5f},
-                                (Vec2){0.0f, 0.5f},
-                                (Vec2){0.0f, 0.0f},
-                            },
-                            4, (Color){0.0f, 0.0f, 1.0f, 0.2f});
-
-    polygon3->filled = true;
-
-    circle = init_ellipse((Vec2){0.0f, 0.0f}, (Vec2){0.4f, 0.2f}, COLOR_RED);
-    line = init_line((Vec2){0.0f, 0.0f}, (Vec2){0.5f, 0.0f}, COLOR_GREEN);
+        init_ellipse(pos, radius, COLOR_RED)->filled = true;
+    }
 
     while (!glfwWindowShouldClose(window))
     {
@@ -192,10 +177,6 @@ int main(void)
         char title[256];
         sprintf(title, "Physics Simulator - FPS: %.1f", currentFPS);
         glfwSetWindowTitle(window, title);
-
-        line->color = COLOR_RED;
-        polygon3->color = COLOR_RED;
-        circle->color = COLOR_GREEN;
 
         kd_free(node);
         node = NULL;
@@ -218,14 +199,13 @@ int main(void)
             Vec2 center = findCenter(b);
             int count = 0;
 
-            float radius = 1.0f; // Adjust based on largest shape size
+            float radius = 1.0f;
             kd_search_range(node, center, radius, 0, candidates, &count);
 
             for (int j = 0; j < count; j++)
             {
                 Body *other = candidates[j];
 
-                // Avoid self-collision and double counting
                 if (other->id <= b->id)
                     continue;
 
@@ -240,6 +220,26 @@ int main(void)
 
         glUseProgram(shaderProgram);
 
+        float dt = 1.0f / (float)currentFPS; // assuming 60 FPS; you can calculate real dt
+
+        for (int i = 0; i < body_count; i++)
+        {
+
+            Body *b = &bodies[i];
+            if (b->isDynamic)
+            {
+
+                // Apply gravity (scaled for normalized coordinates)
+                float scaledGravity = 1.0f; // try 1.0f, 2.0f, etc.
+                b->velocity.y -= scaledGravity * dt;
+
+                b->data.ellipse.pos.x += b->velocity.x * dt;
+                b->data.ellipse.pos.y += b->velocity.y * dt;
+            }
+
+            drawEllipse(&bodies[i]);
+        }
+
         int frameBufferWidth, frameBufferHeight;
         glfwGetFramebufferSize(window, &frameBufferWidth, &frameBufferHeight);
 
@@ -249,11 +249,6 @@ int main(void)
 
         int zoomLoc = glGetUniformLocation(shaderProgram, "uZoom");
         glUniform1f(zoomLoc, screenZoom);
-
-        drawPolygon(polygon);
-        drawPolygon(polygon3);
-        drawEllipse(circle);
-        drawLine(line);
 
         glfwSwapBuffers(window);
         glfwSwapInterval(0);
