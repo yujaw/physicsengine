@@ -116,17 +116,17 @@ void handleCollisionResponse(Body *a, Body *b, CollisionResult *result)
     if (!result->hit)
         return;
 
-    float percent = 1.0f;
-    float slop = 0.001f;
-    float separationBias = 0.01f; // Small bias to prevent kissing
+    float percent = 0.9f; // stronger to prevent sinking
+    float slop = 0.5f;
+    float separationBias = 0.0000000001f; // remove artificial bias
 
     float correctionDepth = fmaxf(result->depth - slop, 0.0f) * percent + separationBias;
 
     bool aDynamic = a->isDynamic;
     bool bDynamic = b->isDynamic;
 
-    float correctionA = 0.001f;
-    float correctionB = 0.001f;
+    float correctionA = 0.0f;
+    float correctionB = 0.0f;
 
     if (aDynamic && bDynamic)
     {
@@ -190,24 +190,26 @@ void handleCollisionResponse(Body *a, Body *b, CollisionResult *result)
         }
     }
 
-    if (aDynamic)
+    // Natural impulse using relative velocity
+    if (aDynamic || bDynamic)
     {
-        float vn = vec_dot(a->velocity, result->normal);
-        if (vn < 0)
-        {
-            Vec2 impulse = vec_scale(result->normal, -vn * (1.0f + a->restitution));
-            a->velocity = vec_add(a->velocity, impulse);
-        }
-    }
+        // Relative velocity
+        Vec2 rv = vec_sub(b->velocity, a->velocity);
+        float velAlongNormal = vec_dot(rv, result->normal);
 
-    if (bDynamic)
-    {
-        Vec2 negNormal = vec_neg(result->normal);
-        float vn = vec_dot(b->velocity, negNormal);
-        if (vn < 0)
+        // Do not resolve if velocities are separating
+        if (velAlongNormal < 0.0f)
         {
-            Vec2 impulse = vec_scale(negNormal, -vn * (1.0f + b->restitution));
-            b->velocity = vec_add(b->velocity, impulse);
+            float e = fminf(a->restitution, b->restitution);
+
+            // Equal mass assumption
+            float j = -(1.0f + e) * velAlongNormal * 0.5f;
+            Vec2 impulse = vec_scale(result->normal, j);
+
+            if (aDynamic)
+                a->velocity = vec_sub(a->velocity, impulse);
+            if (bDynamic)
+                b->velocity = vec_add(b->velocity, impulse);
         }
     }
 }
@@ -253,7 +255,7 @@ void checkShapeCollision(Body *a, Body *b)
                 CollisionResult result;
                 if (checkCollision(a, triangles[t], &result))
                 {
-                    handleCollisionResponse(a, b, &result);
+                    handleCollisionResponse(a, triangles[t], &result);
                 }
             }
 
@@ -348,7 +350,7 @@ int main(void)
     for (int i = 0; i < 30; i++)
     {
         Vec2 pos = {(float)(rand() % 200 - 100) / 100.0f,
-                    (float)(rand() % 200 - 100) / 100.0f};
+                    1.0f};
         Vec2 radius = {0.025f, 0.025f};
 
         Body *b = init_ellipse(pos, radius, COLOR_RED);
@@ -359,7 +361,7 @@ int main(void)
     for (int i = 0; i < 20; i++)
     {
         Vec2 pos = {(float)(rand() % 200 - 100) / 100.0f,
-                    (float)(rand() % 200 - 100) / 100.0f};
+                    1.0f};
         Vec2 radius = {0.025f, 0.025f};
 
         Body *b = init_ellipse(pos, radius, COLOR_YELLOW);
@@ -430,6 +432,16 @@ int main(void)
                         for (int t = 0; t < triangle_count; t++)
                         {
                             checkShapeCollision(triangles[t], b);
+                        }
+
+                        // Extra pass to prevent sinking: resolve against each triangle again
+                        for (int t = 0; t < triangle_count; t++)
+                        {
+                            CollisionResult result;
+                            if (checkCollision(triangles[t], b, &result))
+                            {
+                                handleCollisionResponse(triangles[t], b, &result);
+                            }
                         }
 
                         for (int t = 0; t < triangle_count; t++)
