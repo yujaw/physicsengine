@@ -56,3 +56,13 @@ bool vec_cmp(Vec2 a, Vec2 b)
 {
     return fabs(a.x - b.x) < 1e-6f && fabs(a.y - b.y) < 1e-6f;
 }
+
+Vec2 vec_scale(Vec2 v, float scalar)
+{
+    return (Vec2){v.x * scalar, v.y * scalar};
+}
+
+Vec2 vec_add(Vec2 a, Vec2 b)
+{
+    return (Vec2){a.x + b.x, a.y + b.y};
+}

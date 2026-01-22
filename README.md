@@ -15,10 +15,10 @@
 
 - **Used K-dimension trees for optimizing collision between multiple bodies**
 
+- **Decomposed Concave Shapes into triangulations using Ear Clipping method**
+
 ## ToDo
-- **Properly produce shape even when the coords is not in order**
-    - Convex Hull
-- **Decompose concave shapes into group of convex shapes**
+- **Calculate the velocity, and its direction after collision**
 
 <br/>
 

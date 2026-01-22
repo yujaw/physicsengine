@@ -12,7 +12,9 @@
 #define COLOR_YELLOW (Color){1.0f, 1.0f, 0.0f, 1.0f}
 #define COLOR_WHITE (Color){1.0f, 1.0f, 1.0f, 1.0f}
 #define COLOR_BLACK (Color){0.0f, 0.0f, 0.0f, 1.0f}
-#define COLOR_ORANGE (Color){1.0f, .6f, 0.3f, 1.0f};
+#define COLOR_ORANGE (Color){1.0f, .6f, 0.3f, 1.0f}
+#define COLOR_CYAN (Color){0.0f, 1.0f, 1.0f, 1.0f}
+#define COLOR_MAGENTA (Color){1.0f, 0.0f, 1.0f, 1.0f}
 
 extern int body_count;
 
@@ -98,5 +100,9 @@ Body *init_ellipse(Vec2 pos, Vec2 r, Color color);
 Vec2 findCenter(Body *body);
 
 bool removeBody(Body *body);
+
+void decompose(Body *body, Body **triangles, int *triangle_count);
+
+bool isInsideShape(Body *a, Body *b);
 
 #endif
