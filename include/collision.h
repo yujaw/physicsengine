@@ -23,5 +23,7 @@ bool handleTriangle(Vec2 *simplex, int *count, Vec2 *dir);
 bool handleLine(Vec2 *simplex, int *count, Vec2 *dir);
 bool polygonIsConvex(Vec2 *p, int n);
 CollisionResult calculateEPA(Body *A, Body *B, Vec2 simplex[3], int simplexCount);
+void checkShapeCollision(Body *a, Body *b);
+void handleCollisionResponse(Body *a, Body *b, CollisionResult *result);
 
 #endif
