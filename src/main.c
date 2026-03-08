@@ -9,6 +9,7 @@
 #include "fps.h"
 #include "movement.h"
 #include "kdtree.h"
+#include "dynamic.h"
 
 #define gravity 1.0f
 
@@ -200,14 +201,16 @@ int main(void)
             Body *b = &bodies[i];
             Vec2 center = findCenter(b);
             node = kd_insert(node, center, b, 0);
+
+            accelerate(b, (Vec2){0.0f, -1E-7f});
         }
+
+        
 
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
         glUseProgram(shaderProgram);
-
-        drawAllShapes();
 
         int frameBufferWidth, frameBufferHeight;
         glfwGetFramebufferSize(window, &frameBufferWidth, &frameBufferHeight);
@@ -218,6 +221,8 @@ int main(void)
 
         int zoomLoc = glGetUniformLocation(shaderProgram, "uZoom");
         glUniform1f(zoomLoc, screenZoom);
+
+        drawAllShapes();
 
         glfwSwapBuffers(window);
         glfwSwapInterval(0);
